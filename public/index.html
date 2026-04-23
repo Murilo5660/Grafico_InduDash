@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Industrial</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+  background: #0f172a;
+  color: white;
+  font-family: Arial;
+  text-align: center;
+}
+
+.card {
+  display: inline-block;
+  background: #1e293b;
+  padding: 20px;
+  margin: 10px;
+  border-radius: 10px;
+  width: 200px;
+}
+
+.normal { border-left: 5px solid green; }
+.alerta { border-left: 5px solid yellow; }
+.critico { border-left: 5px solid red; }
+
+button {
+  margin: 10px;
+  padding: 10px;
+  border: none;
+  cursor: pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>🏭 Sistema de Monitoramento</h1>
+
+<div id="status" class="card normal">
+  <h2>Status</h2>
+  <p id="msg">--</p>
+</div>
+
+<div class="card">
+  <h2>🌡️ Temperatura</h2>
+  <p id="temp">--</p>
+</div>
+
+<div class="card">
+  <h2>⚡ Energia</h2>
+  <p id="energia">--</p>
+</div>
+
+<br>
+
+<button onclick="acao('ligar')">Ligar</button>
+<button onclick="acao('desligar')">Desligar</button>
+<button onclick="acao('resfriar')">Resfriar</button>
+
+<br><br>
+
+<canvas id="grafico" width="600" height="250"></canvas>
+
+<script>
+let tempEl = document.getElementById("temp");
+let energiaEl = document.getElementById("energia");
+let statusEl = document.getElementById("status");
+let msgEl = document.getElementById("msg");
+
+let ctx = document.getElementById("grafico").getContext("2d");
+
+let grafico = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: [],
+    datasets: [
+      { label: "Temperatura", data: [] },
+      { label: "Energia", data: [] }
+    ]
+  }
+});
+
+function analisar(temp, energia) {
+  if (temp > 85 || energia > 180) {
+    statusEl.className = "card critico";
+    msgEl.innerText = "CRÍTICO ⚠️";
+  } else if (temp > 70 || energia > 140) {
+    statusEl.className = "card alerta";
+    msgEl.innerText = "ATENÇÃO ⚠️";
+  } else {
+    statusEl.className = "card normal";
+    msgEl.innerText = "NORMAL ✅";
+  }
+}
+
+function atualizar() {
+  fetch("/dados")
+    .then(res => res.json())
+    .then(d => {
+
+      tempEl.innerText = d.temperatura.toFixed(1) + " °C";
+      energiaEl.innerText = d.energia.toFixed(1) + " W";
+      msgEl.innerText = d.status;
+
+      analisar(d.temperatura, d.energia);
+
+      grafico.data.labels.push("");
+      grafico.data.datasets[0].data.push(d.temperatura);
+      grafico.data.datasets[1].data.push(d.energia);
+
+      if (grafico.data.labels.length > 20) {
+        grafico.data.labels.shift();
+        grafico.data.datasets.forEach(ds => ds.data.shift());
+      }
+
+      grafico.update();
+    })
+    .catch(err => {
+      console.error("Erro:", err);
+    });
+}
+
+setInterval(atualizar, 1500);
+
+function acao(tipo) {
+  fetch("/controle/" + tipo);
+}
+</script>
+
+</body>
+</html>
